@@ -5,49 +5,99 @@
 
 static int seed = 0;
 
-// Inicializa la semilla aleatoria
+// Tabla de permutación para Perlin Noise
+static int p[512];
+
 void initNoise() {
     seed = rand();
+    
+    // Inicializar tabla de permutación
+    int permutation[256];
+    for (int i = 0; i < 256; i++) {
+        permutation[i] = i;
+    }
+    
+    // Mezclar usando el seed
+    srand(seed);
+    for (int i = 255; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int temp = permutation[i];
+        permutation[i] = permutation[j];
+        permutation[j] = temp;
+    }
+    
+    // Duplicar para evitar desbordamiento
+    for (int i = 0; i < 512; i++) {
+        p[i] = permutation[i % 256];
+    }
 }
 
-// Nueva función: establecer semilla específica
 void setNoiseSeed(int newSeed) {
     seed = newSeed;
+    
+    // Reinicializar tabla de permutación con nuevo seed
+    int permutation[256];
+    for (int i = 0; i < 256; i++) {
+        permutation[i] = i;
+    }
+    
+    srand(seed);
+    for (int i = 255; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int temp = permutation[i];
+        permutation[i] = permutation[j];
+        permutation[j] = temp;
+    }
+    
+    for (int i = 0; i < 512; i++) {
+        p[i] = permutation[i % 256];
+    }
 }
 
-// Nueva función: obtener semilla actual
 int getNoiseSeed(void) {
     return seed;
 }
 
+// Función de fade mejorada (smoothstep cúbico)
 static float fade(float t) {
     return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-static float hash(int x, int y) {
-    int n = x + y * 57 + seed;
-    n = (n << 13) ^ n;
-    return (1.0f - ((n * (n * n * 15731 + 789221) + 1376312589)
-                    & 0x7fffffff) / 1073741824.0f);
+// Interpolación lineal
+static float lerp(float t, float a, float b) {
+    return a + t * (b - a);
+}
+
+// Función de gradiente
+static float grad(int hash, float x, float y) {
+    int h = hash & 15;
+    float u = h < 8 ? x : y;
+    float v = h < 4 ? y : (h == 12 || h == 14 ? x : 0);
+    return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
 }
 
 float PerlinNoise(float x, float y) {
-    int xi = (int)x & 255;
-    int yi = (int)y & 255;
-    float xf = x - (int)x;
-    float yf = y - (int)y;
-
-    float u = fade(xf);
-    float v = fade(yf);
-
-    float n00 = hash(xi, yi);
-    float n01 = hash(xi, yi + 1);
-    float n10 = hash(xi + 1, yi);
-    float n11 = hash(xi + 1, yi + 1);
-
-    float x1 = n00 + u * (n10 - n00);
-    float x2 = n01 + u * (n11 - n01);
-    float value = x1 + v * (x2 - x1);
-
-    return (value + 1.0f) / 2.0f;
+    // Encontrar las coordenadas de la celda
+    int X = (int)floor(x) & 255;
+    int Y = (int)floor(y) & 255;
+    
+    // Posición relativa dentro de la celda
+    x -= floor(x);
+    y -= floor(y);
+    
+    // Calcular curvas de fade
+    float u = fade(x);
+    float v = fade(y);
+    
+    // Hash de las 4 esquinas
+    int aa = p[p[X] + Y];
+    int ab = p[p[X] + Y + 1];
+    int ba = p[p[X + 1] + Y];
+    int bb = p[p[X + 1] + Y + 1];
+    
+    // Interpolar entre los gradientes
+    float x1 = lerp(u, grad(aa, x, y), grad(ba, x - 1, y));
+    float x2 = lerp(u, grad(ab, x, y - 1), grad(bb, x - 1, y - 1));
+    
+    return lerp(v, x1, x2);
 }

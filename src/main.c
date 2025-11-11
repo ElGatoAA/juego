@@ -7,7 +7,7 @@
 #include "gen/world/chunk.h"
 #include "player/player.h"
 #include "player/movement.h"
-#include "camera.h"
+#include "player/camera.h"
 #include "save.h"
 #include "player/inventory.h"
 

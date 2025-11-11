@@ -4,25 +4,29 @@
 #include <math.h>
 #include <stdio.h>
 
-#define SCALE 0.02f
-#define OCTAVES 4
-#define PERSISTENCE 0.5f
+// Parámetros optimizados para terreno continuo
+#define SCALE 0.015f       // Escala base
+#define OCTAVES 5          // Número de capas de detalle
+#define PERSISTENCE 0.5f   // Cómo decae cada octava
+#define LACUNARITY 2.0f    // Cómo aumenta la frecuencia
 #define MAX_LOADED_CHUNKS 50
 
 static float octaveNoise(float x, float y) {
     float total = 0;
     float amplitude = 1;
-    float frequency = SCALE;
+    float frequency = 1;
     float maxValue = 0;
 
     for (int i = 0; i < OCTAVES; i++) {
-        total += PerlinNoise(x * frequency, y * frequency) * amplitude;
+        // Usar coordenadas escaladas
+        total += PerlinNoise(x * SCALE * frequency, y * SCALE * frequency) * amplitude;
         maxValue += amplitude;
         amplitude *= PERSISTENCE;
-        frequency *= 2.0f;
+        frequency *= LACUNARITY;
     }
 
-    return total / maxValue;
+    // Normalizar a rango 0..1
+    return (total / maxValue) * 0.5f + 0.5f;
 }
 
 void InitChunkManager(ChunkManager *cm, int renderDistance) {
@@ -44,21 +48,31 @@ static ChunkNode* FindChunkNode(ChunkManager *cm, int chunkX, int chunkY) {
 }
 
 static void GenerateChunkTerrain(Chunk *chunk, int chunkX, int chunkY) {
-    int offsetX = chunkX * CHUNK_SIZE;
-    int offsetY = chunkY * CHUNK_SIZE;
-
     for (int y = 0; y < CHUNK_SIZE; y++) {
         for (int x = 0; x < CHUNK_SIZE; x++) {
-            float worldX = offsetX + x;
-            float worldY = offsetY + y;
+            // Coordenadas globales CONTINUAS (en tiles, no en píxeles)
+            float worldX = (float)(chunkX * CHUNK_SIZE + x);
+            float worldY = (float)(chunkY * CHUNK_SIZE + y);
             
+            // Obtener valor de ruido continuo
             float n = octaveNoise(worldX, worldY);
 
-            if (n < 0.25f) chunk->tiles[y][x] = 4;
-            else if (n < 0.4f) chunk->tiles[y][x] = 3;
-            else if (n < 0.48f) chunk->tiles[y][x] = 2;
-            else if (n < 0.7f) chunk->tiles[y][x] = 1;
-            else chunk->tiles[y][x] = 0;
+            // Umbrales de bioma ajustados para más variedad
+            if (n < 0.30f) {
+                chunk->tiles[y][x] = 4;  // Océano profundo (30%)
+            } 
+            else if (n < 0.38f) {
+                chunk->tiles[y][x] = 3;  // Agua poco profunda (8%)
+            }
+            else if (n < 0.42f) {
+                chunk->tiles[y][x] = 2;  // Playa (4%)
+            }
+            else if (n < 0.60f) {
+                chunk->tiles[y][x] = 1;  // Tierra/Pasto (18%)
+            }
+            else {
+                chunk->tiles[y][x] = 0;  // Bosque/Montaña (40%)
+            }
         }
     }
     
@@ -108,8 +122,8 @@ static void UnloadDistantChunks(ChunkManager *cm, int playerChunkX, int playerCh
 }
 
 void UpdateChunks(ChunkManager *cm, float playerX, float playerY) {
-    int playerChunkX = (int)floor(playerX / CHUNK_PIXEL_SIZE);
-    int playerChunkY = (int)floor(playerY / CHUNK_PIXEL_SIZE);
+    int playerChunkX = (int)floor(playerX / (float)CHUNK_PIXEL_SIZE);
+    int playerChunkY = (int)floor(playerY / (float)CHUNK_PIXEL_SIZE);
 
     if (cm->loadedCount > MAX_LOADED_CHUNKS) {
         UnloadDistantChunks(cm, playerChunkX, playerChunkY);
@@ -123,10 +137,8 @@ void UpdateChunks(ChunkManager *cm, float playerX, float playerY) {
             ChunkNode *node = FindChunkNode(cm, chunkX, chunkY);
             
             if (node == NULL) {
-                // SOLO generar si no existe en absoluto
                 CreateChunk(cm, chunkX, chunkY);
             } else if (!node->chunk.loaded) {
-                // Si existe pero está descargado, solo cargarlo (NO regenerar)
                 LoadChunk(&node->chunk);
                 cm->loadedCount++;
             }
@@ -137,7 +149,6 @@ void UpdateChunks(ChunkManager *cm, float playerX, float playerY) {
 void DrawChunks(ChunkManager *cm, Texture2D tiles[5], Camera2D *camera, int screenWidth, int screenHeight) {
     ChunkNode *current = cm->head;
     
-    // Calcular área visible de la cámara
     float zoom = camera->zoom;
     float camLeft = camera->target.x - (screenWidth / 2.0f) / zoom;
     float camRight = camera->target.x + (screenWidth / 2.0f) / zoom;
@@ -150,14 +161,12 @@ void DrawChunks(ChunkManager *cm, Texture2D tiles[5], Camera2D *camera, int scre
             int pixelX = chunk->chunkX * CHUNK_PIXEL_SIZE;
             int pixelY = chunk->chunkY * CHUNK_PIXEL_SIZE;
             
-            // Frustum culling: solo dibujar chunks visibles
             if (pixelX + CHUNK_PIXEL_SIZE < camLeft || pixelX > camRight ||
                 pixelY + CHUNK_PIXEL_SIZE < camTop || pixelY > camBottom) {
                 current = current->next;
                 continue;
             }
 
-            // Dibujar solo tiles visibles dentro del chunk
             int startX = (int)fmaxf(0, (camLeft - pixelX) / TILE_SIZE);
             int endX = (int)fminf(CHUNK_SIZE, (camRight - pixelX) / TILE_SIZE + 1);
             int startY = (int)fmaxf(0, (camTop - pixelY) / TILE_SIZE);
