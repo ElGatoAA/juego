@@ -7,13 +7,12 @@
 
 #define SAVE_FILE "world_save.dat"
 
-// Guardar el mundo completo
-int SaveWorld(ChunkManager *cm, Player *player);
+// Guardar el mundo completo (ahora también guarda la semilla)
+int SaveWorld(ChunkManager *cm, Player *player, int seed);
 
-// Cargar el mundo completo
-int LoadWorld(ChunkManager *cm, Player *player);
+// Cargar el mundo completo (ahora también carga la semilla)
+int LoadWorld(ChunkManager *cm, Player *player, int *seed);
 
-// Verificar si existe un guardado
 int SaveExists(void);
 
 #endif

@@ -7,15 +7,23 @@ static int seed = 0;
 
 // Inicializa la semilla aleatoria
 void initNoise() {
-    seed = rand(); // puede controlarse con srand(time(NULL)) desde main
+    seed = rand();
 }
 
-// Función auxiliar para suavizar transiciones
+// Nueva función: establecer semilla específica
+void setNoiseSeed(int newSeed) {
+    seed = newSeed;
+}
+
+// Nueva función: obtener semilla actual
+int getNoiseSeed(void) {
+    return seed;
+}
+
 static float fade(float t) {
     return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-// Hash simple determinista con semilla
 static float hash(int x, int y) {
     int n = x + y * 57 + seed;
     n = (n << 13) ^ n;
@@ -41,5 +49,5 @@ float PerlinNoise(float x, float y) {
     float x2 = n01 + u * (n11 - n01);
     float value = x1 + v * (x2 - x1);
 
-    return (value + 1.0f) / 2.0f; // Normalizar entre 0 y 1
+    return (value + 1.0f) / 2.0f;
 }

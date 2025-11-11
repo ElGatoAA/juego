@@ -3,6 +3,7 @@
 void InitPlayer(Player *player, float x, float y) {
     InitMovement(&player->move, x, y);
     InitAnimation(&player->anim);
+    InitInventory(&player->inventory);  // Agregar esta línea
 }
 
 void UpdatePlayer(Player *player, float delta) {

@@ -4,10 +4,12 @@
 #include "raylib.h"
 #include "movement.h"
 #include "animation.h"
+#include "inventory.h"  // Agregar esta línea
 
 typedef struct {
     Movement move;
     Animation anim;
+    Inventory inventory;  // Agregar esta línea
 } Player;
 
 void InitPlayer(Player *player, float x, float y);

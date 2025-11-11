@@ -1,5 +1,5 @@
 ---
 triple:          'arm64-apple-darwin'
-binary-path:     '/Users/gatoaa/Downloads/raylib/main'
+binary-path:     main
 relocations:     []
 ...
